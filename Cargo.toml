@@ -1,0 +1,10 @@
+[package]
+name = "serde_urlencoded_bytes"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+itoa = "1.0.18"
+percent-encoding = { version = "2.3.2" }
+ryu = "1.0.23"
+serde = "1.0.228"
