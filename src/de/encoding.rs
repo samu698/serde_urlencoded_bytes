@@ -5,7 +5,7 @@ pub struct Part<'a>(Cow<'a, [u8]>);
 impl<'a> Part<'a> {
     pub fn empty() -> Self { Self(Cow::Borrowed(&[][..])) }
 
-    pub fn decode(bytes: Cow<'a, [u8]>) -> Self {
+    pub fn decode(bytes: &'a [u8]) -> Self {
         fn from_hex(b: u8) -> Option<u8> {
             match b {
                 b'0'..=b'9' => Some(b - b'0'),
@@ -15,21 +15,15 @@ impl<'a> Part<'a> {
             }
         }
 
-        /// Scans `bytes` for the first decodable substitution.
+        /// Search for the first replacement needed to decode the form 
+        /// urlencoded bytes.
         ///
-        /// A substitution is either:
-        /// - `'+'`, which is replaced with a space (`' '`), or
-        /// - a percent-encoded sequence `%hh`, where `h` are valid hex digits,
-        ///   which is decoded into the corresponding byte.
+        /// If a replacement is found then a triple `(prefix, ch, rest)` is 
+        /// returned where `prefix` are the unchanged bytes before the
+        /// replacement, `ch` is the replacement byte and `rest` are the
+        /// remaining bytes that might need more replacements.
         ///
-        /// Invalid percent sequences are ignored and left verbatim.
-        ///
-        /// Returns `Some((prefix, ch, rest))` where:
-        /// - `prefix` is the slice before the substitution,
-        /// - `ch` is the decoded replacement byte,
-        /// - `rest` is the remaining slice after the substitution.
-        ///
-        /// Returns `None` if no substitutions are found.
+        /// Returns `None` if no replacements are needed.
         fn find_replacement(bytes: &[u8]) -> Option<(&[u8], u8, &[u8])> {
             for (idx, &b) in bytes.iter().enumerate() {
                 if b == b'+' {
@@ -48,8 +42,8 @@ impl<'a> Part<'a> {
             None
         }
 
-        let Some((head, ch, mut rest)) = find_replacement(&bytes) else {
-            return Self(bytes);
+        let Some((head, ch, mut rest)) = find_replacement(bytes) else {
+            return Self(Cow::Borrowed(bytes));
         };
 
         let mut result = head.to_vec();
@@ -73,44 +67,30 @@ impl<'a> Part<'a> {
 pub struct PairIter<'a>(pub &'a [u8]);
 
 impl<'a> PairIter<'a> {
-    fn read_sequence(&mut self) -> Option<Cow<'a, [u8]>> {
+    fn read_sequence(&mut self) -> Option<&'a [u8]> {
         if self.0.is_empty() { return None }
         let (seq, rest) = match self.0.iter().position(|&b| b == b'&') {
             Some(i) => (&self.0[..i], &self.0[i + 1..]),
             None => (self.0, &[][..])
         };
         self.0 = rest;
-        Some(Cow::Borrowed(seq))
+        Some(seq)
     }
 }
 
 impl<'a> Iterator for PairIter<'a> {
     type Item = (Part<'a>, Part<'a>);
     fn next(&mut self) -> Option<Self::Item> {
-        let sequence = loop {
+        let seq = loop {
             let sequence = self.read_sequence()?;
             if !sequence.is_empty() { break sequence; }
         };
 
-        let Some(index) = sequence.iter().position(|&b| b == b'=') else {
-            let name = Part::decode(sequence);
-            let value = Part::empty();
-            return Some((name, value));
+        let pair = match seq.iter().position(|&b| b == b'=') {
+            Some(i) => (Part::decode(&seq[..i]), Part::decode(&seq[i + 1..])),
+            None => (Part::decode(seq), Part::empty())
         };
 
-        let pair = match sequence {
-            Cow::Borrowed(borrow) => {
-                let name = Part::decode((&borrow[..index]).into());
-                let value = Part::decode((&borrow[index + 1..]).into());
-                (name, value)
-            }
-            Cow::Owned(mut own) => {
-                let value = (own[index + 1..]).to_vec();
-                own.truncate(index);
-                (Part::decode(own.into()), Part::decode(value.into()))
-            }
-        };
-        
         Some(pair)
     }
 }

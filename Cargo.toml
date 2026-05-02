@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 itoa = "1.0.18"
-percent-encoding = { version = "2.3.2" }
 ryu = "1.0.23"
 serde = "1.0.228"
+
+[dev-dependencies]
+serde_bytes = "0.11.19"
+serde_derive = "1.0.228"

@@ -6,13 +6,27 @@ use serde::de;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+/// Error generated during deserialization of form urlencoded data
 pub enum Error {
+    /// Expected a unit variant.
+    ///
+    /// Only unit enum variants can be deserialized.
     UnitVariant,
+    /// Invalid UTF8 sequence
+    ///
+    /// This error is generated only when deserializing a string, byte buffers
+    /// accept any sequence of bytes
     Utf8(Utf8Error),
+    /// Failed to parse boolean value
+    ///
+    /// Valid boolean values are `true` or `false`.
     ParseBool(ParseBoolError),
+    /// Failed to parse integer value
     ParseInt(ParseIntError),
+    /// Failed to parse floating point value
     ParseFloat(ParseFloatError),
-    Custom(String),
+    /// Error gerated by serde
+    Serde(String),
 }
 
 impl Display for Error {
@@ -23,7 +37,7 @@ impl Display for Error {
             Self::ParseBool(err) => write!(f, "Invalid Bool: {err}"),
             Self::ParseInt(err) => write!(f, "Invalid Integer: {err}"),
             Self::ParseFloat(err) => write!(f, "Invalid Float: {err}"),
-            Self::Custom(err) => err.fmt(f),
+            Self::Serde(err) => err.fmt(f),
         }
     }
 }
@@ -36,13 +50,13 @@ impl std::error::Error for Error {
             Self::ParseBool(err) => Some(err),
             Self::ParseInt(err) => Some(err),
             Self::ParseFloat(err) => Some(err),
-            Self::Custom(_) => None,
+            Self::Serde(_) => None,
         }
     }
 }
 
 impl de::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {
-        Self::Custom(format!("{msg}"))
+        Self::Serde(format!("{msg}"))
     }
 }
