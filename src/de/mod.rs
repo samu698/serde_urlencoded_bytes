@@ -36,6 +36,7 @@ pub struct Deserializer<'de>(MapDeserializer<'de, PairIter<'de>, Error>);
 
 impl<'de> Deserializer<'de> {
     /// Construct an form urlencoded deserializer with the provided bytes
+    #[must_use]
     pub fn new(bytes: &'de [u8]) -> Self {
         Self(MapDeserializer::new(PairIter(bytes)))
     }

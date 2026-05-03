@@ -33,7 +33,7 @@ impl<'a, T: Target> PairSerializer<'a, T> {
         let (result, state) = match self.state {
             State::Key => (value.serialize(KeySerializer::new(self.encoder)), State::Value),
             State::Value => (value.serialize(ValSerializer::new(self.encoder)), State::Done),
-            State::Done => unreachable!("Pair has length greater than two"),
+            State::Done => return Err(Error::InvalidPairLen),
         };
         self.state = state;
         result
@@ -42,18 +42,18 @@ impl<'a, T: Target> PairSerializer<'a, T> {
     fn end(self) -> Result<SerOk<Self>> {
         match self.state {
             State::Done => Ok(()),
-            _ => unreachable!("Pair has length smaller than two"),
+            _ => Err(Error::InvalidPairLen),
         }
     }
 }
 
-impl<'a, T: Target> ser::Serializer for PairSerializer<'a, T> {
+impl<T: Target> ser::Serializer for PairSerializer<'_, T> {
     type Ok = ();
     type Error = Error;
 
     type SerializeSeq = Self;
     type SerializeTuple = Self;
-    type SerializeTupleStruct = ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeTupleStruct = Self;
     type SerializeTupleVariant = ser::Impossible<Self::Ok, Self::Error>;
     type SerializeMap = ser::Impossible<Self::Ok, Self::Error>;
     type SerializeStruct = ser::Impossible<Self::Ok, Self::Error>;
@@ -80,7 +80,6 @@ impl<'a, T: Target> ser::Serializer for PairSerializer<'a, T> {
         serialize_unit_struct(&'static str) -> Ok;
         serialize_unit_variant(&'static str, u32, &'static str) -> Ok;
         serialize_newtype_variant<U>(&'static str, u32, &'static str, &U) -> Ok;
-        serialize_tuple_struct(&'static str, usize) -> SerializeTupleStruct;
         serialize_tuple_variant(&'static str, u32, &'static str, usize) -> SerializeTupleVariant;
         serialize_map(Option<usize>) -> SerializeMap;
         serialize_struct(&'static str, usize) -> SerializeStruct;
@@ -110,10 +109,9 @@ impl<'a, T: Target> ser::Serializer for PairSerializer<'a, T> {
         self,
         len: Option<usize>
     ) -> Result<Self::SerializeSeq> {
-        if len.is_some_and(|len| len == 2) {
-            Ok(self)
-        } else {
-            Err(Error::InvalidPairLen)
+        match len {
+            None | Some(2) => Ok(self),
+            Some(_) => Err(Error::InvalidPairLen),
         }
     }
 
@@ -121,15 +119,25 @@ impl<'a, T: Target> ser::Serializer for PairSerializer<'a, T> {
         self,
         len: usize
     ) -> Result<Self::SerializeTuple> {
-        if len == 2 {
-            Ok(self)
-        } else {
-            Err(Error::InvalidPairLen)
+        match len {
+            2 => Ok(self),
+            _ => Err(Error::InvalidPairLen),
+        }
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name:&'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        match len {
+            2 => Ok(self),
+            _ => Err(Error::InvalidPairLen),
         }
     }
 }
 
-impl<'a, T: Target> ser::SerializeSeq for PairSerializer<'a, T> {
+impl<T: Target> ser::SerializeSeq for PairSerializer<'_, T> {
     type Ok = SerOk<Self>;
     type Error = SerErr<Self>;
 
@@ -145,11 +153,27 @@ impl<'a, T: Target> ser::SerializeSeq for PairSerializer<'a, T> {
     }
 }
 
-impl<'a, T: Target> ser::SerializeTuple for PairSerializer<'a, T> {
+impl<T: Target> ser::SerializeTuple for PairSerializer<'_, T> {
     type Ok = SerOk<Self>;
     type Error = SerErr<Self>;
 
     fn serialize_element<U: ?Sized + ser::Serialize>(
+        &mut self,
+        value: &U
+    ) -> Result<()> {
+        self.serialize_element(value)
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        self.end()
+    }
+}
+
+impl<T: Target> ser::SerializeTupleStruct for PairSerializer<'_, T> {
+    type Ok = SerOk<Self>;
+    type Error = SerErr<Self>;
+
+    fn serialize_field<U: ?Sized + ser::Serialize>(
         &mut self,
         value: &U
     ) -> Result<()> {

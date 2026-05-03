@@ -10,7 +10,7 @@ pub enum Error {
     InvalidPairLen,
     ExpectedKey,
     ExpectedValue,
-    UnsupportedKeyValType,
+    UnsupportedKeyValType(&'static str),
     Custom(String),
 }
 
@@ -22,7 +22,7 @@ impl Display for Error {
             Self::InvalidPairLen => write!(f, "Pair must have a length of two"),
             Self::ExpectedKey => write!(f, "Expected key"),
             Self::ExpectedValue => write!(f, "Expected value"),
-            Self::UnsupportedKeyValType => write!(f, "Unspported key/value type"),
+            Self::UnsupportedKeyValType(ty) => write!(f, "Unspported key/value type: `{ty}`"),
             Self::Custom(err) => err.fmt(f),
         }
     }

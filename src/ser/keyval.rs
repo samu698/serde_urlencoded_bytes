@@ -44,7 +44,7 @@ macro_rules! serialize_num {
     )*};
 }
 
-impl<'a, T: Target, M: KeyValMode<T>> ser::Serializer for KeyValSerializer<'a, T, M> {
+impl<T: Target, M: KeyValMode<T>> ser::Serializer for KeyValSerializer<'_, T, M> {
     type Ok = ();
     type Error = Error;
 
@@ -90,7 +90,7 @@ impl<'a, T: Target, M: KeyValMode<T>> ser::Serializer for KeyValSerializer<'a, T
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        self.serialize_unit()
+        M::serialize_none(self.0)
     }
 
     fn serialize_some<U: ?Sized + ser::Serialize>(
@@ -104,8 +104,62 @@ impl<'a, T: Target, M: KeyValMode<T>> ser::Serializer for KeyValSerializer<'a, T
         M::serialize_unit(self.0)
     }
 
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStruct> {
+        Err(Error::UnsupportedKeyValType("struct"))
+    }
+
+    fn serialize_newtype_struct<U: ?Sized + ser::Serialize> (
+        self,
+        _name: &'static str,
+        value: &U,
+    ) -> Result<Self::Ok> {
+        value.serialize(self)
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTuple> {
+        Err(Error::UnsupportedKeyValType("tuple struct"))
+    }
+
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok> {
         self.push_str(name)
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        Err(Error::UnsupportedKeyValType("struct variant"))
+    }
+    
+    fn serialize_newtype_variant<U: ?Sized + ser::Serialize> (
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &U,
+    ) -> Result<Self::Ok> {
+        Err(Error::UnsupportedKeyValType("newtype variant"))
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        Err(Error::UnsupportedKeyValType("tuple variant"))
     }
 
     fn serialize_unit_variant(
@@ -117,79 +171,25 @@ impl<'a, T: Target, M: KeyValMode<T>> ser::Serializer for KeyValSerializer<'a, T
         self.push_str(variant)
     }
 
-    fn serialize_newtype_struct<U: ?Sized + ser::Serialize> (
+    fn serialize_tuple(
         self,
-        _name: &'static str,
-        value: &U,
-    ) -> Result<Self::Ok> {
-        value.serialize(self)
-    }
-
-    fn serialize_newtype_variant<U: ?Sized + ser::Serialize> (
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &U,
-    ) -> Result<Self::Ok> {
-        Err(Error::UnsupportedKeyValType)
+        _len: usize,
+    ) -> Result<Self::SerializeTuple> {
+        Err(Error::UnsupportedKeyValType("tuple"))
     }
 
     fn serialize_seq(
         self,
         _len: Option<usize>,
     ) -> Result<Self::SerializeSeq> {
-        Err(Error::UnsupportedKeyValType)
-    }
-
-    fn serialize_tuple(
-        self,
-        _len: usize,
-    ) -> Result<Self::SerializeTuple> {
-        Err(Error::UnsupportedKeyValType)
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTuple> {
-        Err(Error::UnsupportedKeyValType)
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::UnsupportedKeyValType)
+        Err(Error::UnsupportedKeyValType("sequence"))
     }
 
     fn serialize_map(
         self,
         _len: Option<usize>,
     ) -> Result<Self::SerializeMap> {
-        Err(Error::UnsupportedKeyValType)
-    }
-
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStruct> {
-        Err(Error::UnsupportedKeyValType)
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::UnsupportedKeyValType)
+        Err(Error::UnsupportedKeyValType("map"))
     }
 }
 
@@ -200,6 +200,7 @@ pub trait KeyValMode<T: Target> {
     ) -> Result<()>;
 
     fn serialize_unit(encoder: &mut Encoder<T>) -> Result<()>;
+    fn serialize_none(encoder: &mut Encoder<T>) -> Result<()>;
 }
 
 pub struct Key;
@@ -212,7 +213,11 @@ impl<T: Target> KeyValMode<T> for Key {
     }
 
     fn serialize_unit(_encoder: &mut Encoder<T>) -> Result<()> {
-        Err(Error::UnsupportedKeyValType)
+        Err(Error::UnsupportedKeyValType("unit"))
+    }
+
+    fn serialize_none(_encoder: &mut Encoder<T>) -> Result<()> {
+        Err(Error::UnsupportedKeyValType("none"))
     }
 }
 
@@ -227,5 +232,9 @@ impl<T: Target> KeyValMode<T> for Val {
 
     fn serialize_unit(encoder: &mut Encoder<T>) -> Result<()> {
         encoder.push_empty_value()
+    }
+
+    fn serialize_none(encoder: &mut Encoder<T>) -> Result<()> {
+        encoder.push_none_value()
     }
 }
