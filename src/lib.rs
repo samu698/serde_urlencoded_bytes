@@ -1,8 +1,6 @@
 //! Serde support for `x-www-form-urlencoded` format that allows fields with non
 //! UTF-8 values
 
-#![warn(clippy::cargo)]
-
 pub mod de;
 pub use de::{Deserializer, from_bytes, from_str};
 
