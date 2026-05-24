@@ -17,12 +17,46 @@ macro_rules! check_str {
 struct OwnedBytes(#[serde(with = "serde_bytes")] Vec<u8>);
 
 #[derive(Deserialize, Debug, PartialEq)]
-struct Map<A, B> { a: A, b: B }
+struct Unit;
 
-type MapSame<A> = Map<A, A>;
+#[derive(Deserialize, Debug, PartialEq)]
+struct Newtype<A>(A);
+
+#[derive(Deserialize, Debug, PartialEq)]
+struct Tuple<A, B>(A, B);
+
+#[derive(Deserialize, Debug, PartialEq)]
+struct Struct<A, B> { a: A, b: B }
+
+type MapSame<A> = Struct<A, A>;
 
 fn s(v: &str) -> String { v.to_string() }
 fn b(v: &[u8]) -> OwnedBytes { OwnedBytes(v.to_vec()) }
+
+#[test]
+fn deserialize_toplevel() {
+    // Empty Sequence
+    check!(b"", Vec::<()>::new());
+
+    // Sequence
+    check!(b"0=0", vec![(0, 0)]);
+
+    // Unit
+    check!(b"", ());
+
+    // Unit struct
+    check!(b"", Unit);
+
+    // Options
+    check!(b"", None::<()>);
+    check!(b"0=0", Some([(0, 0)]));
+
+    // Struct
+    check!(b"a=0&b=1", Struct { a: 0, b: 1 });
+
+    // Newtype struct
+    check!(b"0=0", Newtype([(0, 0)]));
+}
 
 #[test]
 fn deserialize_bool() {
@@ -142,9 +176,6 @@ fn deserialize_unit() {
 
 #[test]
 fn deserialize_unit_struct() {
-    #[derive(Debug, Deserialize, PartialEq)]
-    struct Unit;
-
     check!(b"", Unit);
     check!(b"&", Unit);
     check!(b"&&", Unit);
@@ -152,18 +183,13 @@ fn deserialize_unit_struct() {
 
 #[test]
 fn deserialize_newtype_struct() {
-    #[derive(Deserialize, Debug, PartialEq)]
-    struct NewType<T>(T);
-
-    check!(b"a=b", [(NewType("a"), NewType("b"))]);
-    check!(b"true=0", [(NewType(true), NewType(0))]);
+    check!(b"a=b", [(Newtype("a"), Newtype("b"))]);
+    check!(b"true=0", [(Newtype(true), Newtype(0))]);
 }
 
 #[test]
 fn deserialize_tuple_struct() {
-    #[derive(Deserialize, Debug, PartialEq)]
-    struct Pair<K, V>(K, V);
-    check!(b"a=b", [Pair("a", "b")]);
+    check!(b"a=b", [Tuple("a", "b")]);
 
     #[derive(Deserialize, Debug, PartialEq)]
     struct Triple<T>(T, T, T);

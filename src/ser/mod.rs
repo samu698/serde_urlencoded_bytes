@@ -3,31 +3,6 @@
 //! Values can be serialized into an owned result with [`to_string`] or 
 //! [`to_vec`] and can be also appended to an existing value with 
 //! [`append_string`] and [`append_vec`]
-//!
-//! The serializer supports the following types:
-//! - Normal Structs: `struct S { key1: Val, key2: Val }`
-//! - Maps: `HashMap<Key, Val>`
-//! - Tuples and arrays of pairs: `[(Key, Val); Len]`
-//! - Sequences of pairs: `Vec<(Key, Val)>`
-//! - Options of supported types: `Option<HashMap<Key, Val>>`
-//! - Newtype of supported types: `NewType<HashMap<Key, Val>>`
-//! - Units: `()`
-//!
-//! The pairs must have one of the following types:
-//! - Tuple or Array of length 2: `(Key, Val)`
-//! - Sequence of length 2: `Vec<KeyVal>`,
-//! - Tuple structs of length 2: `struct Pair(Key, Val)`
-//! - Option of a pair: `Option<Pair>`
-//! - Newtype of a pair: `NewType<(Key, Val)>`
-//!
-//! The keys and values must have one of these types
-//! - Any non compound type: `bool`, `u32`, `char`, `&str`
-//! - Options: keys must be Some, if a value is None the pair won't be included
-//! - Newtype structs of supported values: `NewType<u32>`,
-//! - Unit struct: Serialized as their name
-//! - Unit enum variants: Serialized as their name
-//! - Units: keys cannot be units, if a value is unit only the key will be added
-//!   without the value portion
 
 use serde::ser;
 

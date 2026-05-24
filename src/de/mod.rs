@@ -2,17 +2,6 @@
 //!
 //! The functions [`from_bytes`] and [`from_str`] are the main entry points used
 //! for using the deserializer.
-//!
-//! This formats supports deserializing the following types:
-//! - Structs: using the field names as keys
-//! - Maps: `HashMap<K, V>` for example
-//! - Sequences of key value pairs: `Vec<(K, V)>` for example
-//!
-//! The supported types for the keys and values are:
-//! - Any non compound type: for example `bool`, `u32`, `char`, `&str`
-//! - Options: if the key is missing the value will be `None`
-//! - Newtype structs
-//! - Unit enum variants: deserialized from the name of the variant
 
 use std::borrow::Cow;
 
@@ -43,33 +32,6 @@ impl<'de> Deserializer<'de> {
 }
 
 /// Deserialize an instance of type `T` from bytes of form urlencoded data
-///
-/// # Example
-/// ```
-/// use serde_derive::Deserialize;
-///
-/// #[derive(Deserialize, Debug, PartialEq)]
-/// struct Value {
-///     uint: u32,
-///     int: i32,
-///     str: String,
-///     #[serde(with = "serde_bytes")]
-///     bytes: Vec<u8>,
-/// }
-///
-/// let bytes = b"uint=10&int=-10&str=Hello%2C+World&bytes=%F0%0D%BA%BE";
-/// let value = Value { 
-///     uint: 10,
-///     int: -10, 
-///     str: "Hello, World".into(),
-///     bytes: b"\xF0\x0D\xBA\xBE".into(),
-/// };
-///
-/// assert_eq!(
-///     serde_urlencoded_bytes::from_bytes(bytes),
-///     Ok(value)
-/// );
-/// ```
 pub fn from_bytes<'de, T: de::Deserialize<'de>>(bytes: &'de [u8]) -> Result<T> {
     T::deserialize(Deserializer::new(bytes))
 }
@@ -111,10 +73,27 @@ impl<'de> de::Deserializer<'de> for Deserializer<'de> {
         self.deserialize_unit(visitor)
     }
 
+    fn deserialize_newtype_struct<V: de::Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        visitor.visit_newtype_struct(self)
+    }
+
+    fn deserialize_option<V: de::Visitor<'de>>(
+        self,
+        visitor: V
+    ) -> Result<V::Value> {
+        match self.0.clone().end() {
+            Ok(()) => visitor.visit_none(),
+            Err(_) => visitor.visit_some(self),
+        }
+    }
+
     forward_to_deserialize_any! {
-        bool u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 char str string 
-        option bytes byte_buf newtype_struct tuple_struct struct
-        identifier enum ignored_any
+        bool u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 char str string
+        bytes byte_buf tuple_struct struct identifier enum ignored_any
     }
 }
 

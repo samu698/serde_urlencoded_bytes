@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+#[derive(Clone)]
 pub struct Part<'a>(Cow<'a, [u8]>);
 
 impl<'a> Part<'a> {
@@ -64,6 +65,7 @@ impl<'a> Part<'a> {
     pub fn inner(self) -> Cow<'a, [u8]> { self.0 }
 }
 
+#[derive(Clone)]
 pub struct PairIter<'a>(pub &'a [u8]);
 
 impl<'a> PairIter<'a> {
